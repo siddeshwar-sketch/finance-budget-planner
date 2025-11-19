@@ -1,14 +1,330 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Expense Tracker</title>
+  <style>
+    :root{
+      --bg:#f4f7fb; --card:#ffffff; --accent:#2b8cff; --income:#2ecc71; --expense:#ff6b6b; --muted:#6b7280;
+      --radius:12px; --shadow: 0 6px 20px rgba(16,24,40,0.08);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; background:linear-gradient(180deg,var(--bg),#ffffff); color:#0f172a;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      padding:24px;
+    }
+
+    .container{
+      max-width:1000px; margin:0 auto; display:grid;
+      grid-template-columns: 1fr 380px; gap:20px;
+      align-items:start;
+    }
+
+    header{
+      grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; gap:16px;
+      margin-bottom:6px;
+    }
+    header h1{font-size:1.2rem; margin:0}
+    header .meta{color:var(--muted); font-size:0.9rem}
+
+    .panel{
+      background:var(--card); border-radius:var(--radius); padding:18px; box-shadow:var(--shadow);
+    }
+
+    /* left column */
+    .overview{display:flex; gap:12px; flex-wrap:wrap; align-items:stretch}
+    .balance{
+      flex:1 1 240px; padding:18px; border-radius:12px; background:linear-gradient(90deg,#fff,#f8fbff);
+    }
+    .balance h2{margin:0; font-size:0.95rem; color:var(--muted)}
+    .balance .amount{font-size:2rem; margin-top:6px}
+    .sums{display:flex; gap:10px; margin-top:14px}
+    .sum{flex:1; padding:10px; border-radius:10px; background:#fbfdff; text-align:center}
+    .sum .label{font-size:0.8rem; color:var(--muted)}
+    .sum .val{font-weight:600; margin-top:6px}
+
+    /* transactions list */
+    .transactions{margin-top:18px}
+    .transactions h3{margin:0 0 10px 0}
+    ul.tx-list{list-style:none; padding:0; margin:0; display:grid; gap:8px; max-height:420px; overflow:auto}
+    li.tx{
+      display:flex; justify-content:space-between; gap:12px; align-items:center;
+      padding:10px; border-radius:10px; background:#fcfeff; border:1px solid rgba(15,23,42,0.03);
+    }
+    .tx .left{display:flex; gap:10px; align-items:center}
+    .badge{width:44px; height:44px; display:flex; align-items:center; justify-content:center; border-radius:10px; font-weight:700}
+    .badge.in{background:linear-gradient(135deg,#e6fbef,#eafbf3); color:var(--income)}
+    .badge.out{background:linear-gradient(135deg,#fff2f2,#fff7f6); color:var(--expense)}
+    .tx .meta{font-size:0.9rem}
+    .tx .meta .name{font-weight:600}
+    .tx .meta .date{color:var(--muted); font-size:0.8rem}
+    .tx .amount{font-weight:700}
+    .tx .remove{background:transparent;border:0;color:var(--muted);cursor:pointer;font-size:1rem;padding:6px}
+
+    /* right column: form */
+    form .field{display:flex; flex-direction:column; gap:6px; margin-bottom:12px}
+    label{font-size:0.85rem; color:var(--muted)}
+    input[type="text"], input[type="number"], input[type="date"], select{
+      padding:10px; border-radius:8px; border:1px solid rgba(15,23,42,0.06); font-size:0.95rem;
+      background:#fff;
+    }
+    .actions{display:flex; gap:8px; margin-top:6px}
+    button.btn{padding:10px 12px; border-radius:10px; border:0; cursor:pointer; font-weight:600}
+    button.primary{background:var(--accent); color:#fff}
+    button.ghost{background:#f3f4f6; color:#111827}
+
+    /* filters & small screen */
+    .controls{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap}
+    .search{flex:1; min-width:150px}
+    @media (max-width:880px){
+      .container{grid-template-columns:1fr; padding-bottom:80px}
+      header{flex-direction:column; align-items:flex-start; gap:6px}
+      .balance{order:1}
+      .panel.right{order:2}
+    }
+  </style>
 </head>
 <body>
-  <h1>Expense Tracker</h1>
-  <p>Short description: A small project to track expenses and plan budgets.</p>
-  <p>Name: Siddu Mathapati</p>
-  <p>Roll number: ROLL-12345</p>
-  <p><strong>This is my finance project</strong></p>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Expense Tracker</h1>
+        <div class="meta">A small project to track expenses and plan budgets — Siddu Mathapati (ROLL-12345)</div>
+      </div>
+      <div style="text-align:right;color:var(--muted);font-size:0.9rem">This is my finance project</div>
+    </header>
+
+    <main class="panel">
+      <div class="overview">
+        <div class="balance">
+          <h2>Current Balance</h2>
+          <div class="amount" id="balance">$0.00</div>
+          <div class="sums">
+            <div class="sum">
+              <div class="label">Income</div>
+              <div class="val" id="money-plus">+$0.00</div>
+            </div>
+            <div class="sum">
+              <div class="label">Expense</div>
+              <div class="val" id="money-minus">-$0.00</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1 1 220px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <h3 style="margin:0">Transactions</h3>
+            <div style="color:var(--muted);font-size:0.9rem" id="count">0 items</div>
+          </div>
+
+          <div class="controls">
+            <input id="search" class="search" placeholder="Search name or category" />
+            <select id="filter-type">
+              <option value="all">All</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+            </select>
+            <button class="btn ghost" id="clear-all" title="Clear all transactions">Clear</button>
+          </div>
+
+          <div class="transactions">
+            <ul class="tx-list" id="list"></ul>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <aside class="panel right">
+      <h3>Add Transaction</h3>
+      <form id="form">
+        <div class="field">
+          <label for="text">Name</label>
+          <input type="text" id="text" placeholder="e.g., Salary, Groceries" required />
+        </div>
+        <div class="field">
+          <label for="amount">Amount (positive = income, negative = expense)</label>
+          <input type="number" step="0.01" id="amount" placeholder="e.g., 50 or -20" required />
+        </div>
+        <div class="field">
+          <label for="category">Category</label>
+          <select id="category">
+            <option value="General">General</option>
+            <option value="Food">Food</option>
+            <option value="Transport">Transport</option>
+            <option value="Bills">Bills</option>
+            <option value="Salary">Salary</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="date">Date</label>
+          <input type="date" id="date" />
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" type="submit">Add</button>
+          <button class="btn ghost" type="button" id="add-sample">Sample</button>
+        </div>
+      </form>
+      <p style="color:var(--muted);font-size:0.9rem;margin-top:12px">
+        Tip: Use negative amounts for expenses (example: -25.50). Transactions are stored in your browser.
+      </p>
+    </aside>
+  </div>
+
+  <script>
+    // Simple Expense Tracker with localStorage, search, filter & responsive UI
+    const listEl = document.getElementById('list');
+    const balanceEl = document.getElementById('balance');
+    const moneyPlus = document.getElementById('money-plus');
+    const moneyMinus = document.getElementById('money-minus');
+    const countEl = document.getElementById('count');
+
+    const form = document.getElementById('form');
+    const text = document.getElementById('text');
+    const amount = document.getElementById('amount');
+    const category = document.getElementById('category');
+    const dateInput = document.getElementById('date');
+    const search = document.getElementById('search');
+    const filterType = document.getElementById('filter-type');
+    const clearAll = document.getElementById('clear-all');
+    const addSample = document.getElementById('add-sample');
+
+    const LS_KEY = 'ft_transactions_v1';
+
+    let transactions = JSON.parse(localStorage.getItem(LS_KEY)) || [];
+
+    function save(){
+      localStorage.setItem(LS_KEY, JSON.stringify(transactions));
+    }
+
+    function formatCurrency(n){
+      const sign = n < 0 ? '-' : '';
+      return sign + '$' + Math.abs(n).toFixed(2);
+    }
+
+    function renderList(filter = {}) {
+      // filter: {q, type}
+      const q = (filter.q || '').toLowerCase();
+      const type = filter.type || 'all';
+      listEl.innerHTML = '';
+      const filtered = transactions.filter(t => {
+        if (type === 'income' && t.amount <= 0) return false;
+        if (type === 'expense' && t.amount >= 0) return false;
+        if (q) {
+          const hay = (t.name + ' ' + (t.category||'')).toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      filtered.forEach(t => {
+        const li = document.createElement('li');
+        li.className = 'tx';
+        li.innerHTML = `
+          <div class="left">
+            <div class="badge ${t.amount >= 0 ? 'in' : 'out'}">${(t.name||'')[0] || '?'}</div>
+            <div class="meta">
+              <div class="name">${escapeHtml(t.name)}</div>
+              <div class="date">${t.date ? t.date : ''} · <span style="color:var(--muted)">${escapeHtml(t.category || '')}</span></div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="amount">${formatCurrency(t.amount)}</div>
+            <button class="remove" data-id="${t.id}" title="Delete">✕</button>
+          </div>
+        `;
+        listEl.appendChild(li);
+      });
+
+      countEl.textContent = filtered.length + ' item' + (filtered.length === 1 ? '' : 's');
+      updateTotals();
+    }
+
+    function updateTotals(){
+      const amounts = transactions.map(t => t.amount);
+      const total = amounts.reduce((a,b)=>a+b,0);
+      const income = amounts.filter(n=>n>0).reduce((a,b)=>a+b,0);
+      const expense = amounts.filter(n=>n<0).reduce((a,b)=>a+b,0);
+
+      balanceEl.textContent = formatCurrency(total);
+      moneyPlus.textContent = '+' + '$' + income.toFixed(2);
+      moneyMinus.textContent = '-' + '$' + Math.abs(expense).toFixed(2);
+    }
+
+    function addTransaction(obj){
+      transactions.unshift(obj);
+      save();
+      renderList({q:search.value, type:filterType.value});
+    }
+
+    function removeTransaction(id){
+      transactions = transactions.filter(t => t.id !== id);
+      save();
+      renderList({q:search.value, type:filterType.value});
+    }
+
+    function uid(){
+      return Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+    }
+
+    form.addEventListener('submit', e=>{
+      e.preventDefault();
+      const name = text.value.trim();
+      const amt = parseFloat(amount.value);
+      if(!name || Number.isNaN(amt)){
+        alert('Please provide valid name and amount');
+        return;
+      }
+      const tx = {
+        id: uid(),
+        name,
+        amount: Math.round(amt*100)/100,
+        category: category.value,
+        date: dateInput.value || new Date().toISOString().slice(0,10)
+      };
+      addTransaction(tx);
+      form.reset();
+    });
+
+    listEl.addEventListener('click', e=>{
+      const btn = e.target.closest('button.remove');
+      if(!btn) return;
+      const id = btn.getAttribute('data-id');
+      if(confirm('Delete this transaction?')) removeTransaction(id);
+    });
+
+    search.addEventListener('input', ()=> renderList({q:search.value, type:filterType.value}));
+    filterType.addEventListener('change', ()=> renderList({q:search.value, type:filterType.value}));
+
+    clearAll.addEventListener('click', ()=>{
+      if(!transactions.length) return;
+      if(confirm('Clear ALL transactions? This cannot be undone.')){
+        transactions = [];
+        save();
+        renderList({q:'', type:'all'});
+      }
+    });
+
+    addSample.addEventListener('click', ()=>{
+      const samples = [
+        {name:'Salary', amount:1500, category:'Salary'},
+        {name:'Groceries', amount:-68.25, category:'Food'},
+        {name:'Bus fare', amount:-2.75, category:'Transport'},
+        {name:'Electric bill', amount:-120.40, category:'Bills'}
+      ];
+      samples.forEach(s => addTransaction({...s, id: uid(), date: new Date().toISOString().slice(0,10)}));
+    });
+
+    // small helper to avoid injection in names/categories
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    // initial render
+    renderList({q:search.value, type:filterType.value});
+  </script>
 </body>
-</html> 
+</html>
